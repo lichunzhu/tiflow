@@ -326,5 +326,5 @@ func (w *FileWriter) handleDuplicateEventsExist(ev *replication.BinlogEvent) (WR
 }
 
 func (w *FileWriter) IsActive(uuid, filename string) (bool, int64) {
-	return w.out.isActive(uuid, filename)
+	return w.out.isActive(uuid, filename), w.out.Offset()
 }

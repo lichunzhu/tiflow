@@ -140,8 +140,8 @@ func (w *BinlogWriter) Offset() int64 {
 	return w.offset.Load()
 }
 
-func (w *BinlogWriter) isActive(uuid, filename string) (bool, int64) {
+func (w *BinlogWriter) isActive(uuid, filename string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return uuid == w.uuid && filename == w.filename, w.offset.Load()
+	return uuid == w.uuid && filename == w.filename
 }

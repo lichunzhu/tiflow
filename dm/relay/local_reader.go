@@ -653,11 +653,15 @@ func (r *BinlogReader) parseFile(
 }
 
 func (r *BinlogReader) waitBinlogChanged(ctx context.Context, state *binlogFileParseState) (needSwitch, needReParse bool, err error) {
+	cond := r.relay.Coordinator()
+	cond.L.Lock()
 	active, relayOffset := r.relay.IsActive(r.currentUUID, state.relayLogFile)
 	if active && relayOffset > state.latestPos {
+		cond.L.Unlock()
 		return false, true, nil
 	}
 	if !active {
+		cond.L.Unlock()
 		meta := &LocalMeta{}
 		_, err := toml.DecodeFile(filepath.Join(state.relayLogDir, utils.MetaFilename), meta)
 		if err != nil {
@@ -712,23 +716,22 @@ func (r *BinlogReader) waitBinlogChanged(ctx context.Context, state *binlogFileP
 			}
 		}
 	}
-
+	defer cond.L.Unlock()
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return false, false, nil
-		case <-r.Notified():
-			active, relayOffset = r.relay.IsActive(r.currentUUID, state.relayLogFile)
-			if active {
-				if relayOffset > state.latestPos {
-					return false, true, nil
-				}
-				// already read to relayOffset, try again
-				continue
-			}
-			// file may have changed, try parse and check again
-			return false, true, nil
 		}
+		if active {
+			if relayOffset > state.latestPos {
+				return false, true, nil
+			}
+			cond.Wait()
+			active, relayOffset = r.relay.IsActive(r.currentUUID, state.relayLogFile)
+			// already read to relayOffset, try again
+			continue
+		}
+		// file may have changed, try parse and check again
+		return false, true, nil
 	}
 }
 
@@ -775,6 +778,7 @@ func (r *BinlogReader) Close() {
 	r.running = false
 	r.cancel()
 	r.parser.Stop()
+	r.relay.Coordinator().Broadcast()
 	r.wg.Wait()
 	r.relay.UnRegisterListener(r)
 	r.tctx.L().Info("binlog reader closed")

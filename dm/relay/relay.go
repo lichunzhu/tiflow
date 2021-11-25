@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,6 +110,8 @@ type Process interface {
 	NewReader(logger log.Logger, cfg *BinlogReaderConfig) *BinlogReader
 	// IsActive check whether given uuid+filename is active binlog file, if true return current file offset
 	IsActive(uuid, filename string) (bool, int64)
+	// Coordinator returns the coordinator
+	Coordinator() *sync.Cond
 }
 
 // Relay relays mysql binlog to local file.
@@ -128,6 +131,9 @@ type Relay struct {
 		info *pkgstreamer.RelayLogInfo
 	}
 
+	cond   *sync.Cond
+	offset int64
+
 	writer    Writer
 	listeners map[Listener]struct{} // make it a set to make it easier to remove listener
 }
@@ -139,6 +145,7 @@ func NewRealRelay(cfg *Config) Process {
 		meta:      NewLocalMeta(cfg.Flavor, cfg.RelayDir),
 		logger:    log.With(zap.String("component", "relay log")),
 		listeners: make(map[Listener]struct{}),
+		cond:      sync.NewCond(&sync.Mutex{}),
 	}
 	r.writer = NewFileWriter(r.logger, cfg.RelayDir)
 	return r
@@ -703,7 +710,8 @@ func (r *Relay) handleEvents(
 			continue
 		}
 
-		r.notify(e)
+		//r.notify(e)
+		r.coordinate()
 
 		relayLogWriteDurationHistogram.Observe(time.Since(writeTimer).Seconds())
 		r.tryUpdateActiveRelayLog(e, lastPos.Name) // wrote a event, try update the current active relay log.
@@ -1017,12 +1025,22 @@ func (r *Relay) Close() {
 
 	r.closeDB()
 
+	r.cond.L.Lock()
+	r.offset = math.MaxInt64
+	r.cond.L.Unlock()
+	r.cond.Broadcast()
+
 	r.closed.Store(true)
 	r.logger.Info("relay unit closed")
 }
 
 func (r *Relay) IsActive(uuid, filename string) (bool, int64) {
-	return r.writer.IsActive(uuid, filename)
+	isActive, _ := r.writer.IsActive(uuid, filename)
+	return isActive, r.offset
+}
+
+func (r *Relay) Coordinator() *sync.Cond {
+	return r.cond
 }
 
 // Status implements the dm.Unit interface.
@@ -1222,6 +1240,13 @@ func (r *Relay) notify(e *replication.BinlogEvent) {
 	for el := range r.listeners {
 		el.OnEvent(e)
 	}
+}
+
+func (r *Relay) coordinate() {
+	r.cond.L.Lock()
+	_, r.offset = r.writer.IsActive("", "")
+	r.cond.L.Unlock()
+	r.cond.Broadcast()
 }
 
 func (r *Relay) NewReader(logger log.Logger, cfg *BinlogReaderConfig) *BinlogReader {

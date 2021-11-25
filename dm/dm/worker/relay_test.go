@@ -15,6 +15,7 @@ package worker
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -41,6 +42,7 @@ var _ = Suite(&testRelay{})
 // DummyRelay is a dummy relay.
 type DummyRelay struct {
 	initErr error
+	cond    *sync.Cond
 
 	processResult pb.ProcessResult
 	errorInfo     *pb.RelayError
@@ -142,6 +144,10 @@ func (d *DummyRelay) ResetMeta() {}
 // PurgeRelayDir implements Process interface.
 func (d *DummyRelay) PurgeRelayDir() error {
 	return nil
+}
+
+func (d *DummyRelay) Coordinator() *sync.Cond {
+	return d.cond
 }
 
 func (t *testRelay) TestRelay(c *C) {
