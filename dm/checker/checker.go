@@ -471,38 +471,39 @@ func (c *Checker) Init(ctx context.Context) (err error) {
 			newLightningPrecheckAdaptor(targetInfoGetter, info),
 			cpdb,
 		)
-
-		if _, ok := c.checkingItems[config.LightningFreeSpaceChecking]; ok {
-			c.checkList = append(c.checkList, checker.NewLightningFreeSpaceChecker(
-				info.totalDataSize.Load(), targetInfoGetter))
-		}
-		if _, ok := c.checkingItems[config.LightningEmptyRegionChecking]; ok {
-			lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterEmptyRegion)
-			if err != nil {
-				return err
+		if instance.cfg.CheckRequirements {
+			if _, ok := c.checkingItems[config.LightningFreeSpaceChecking]; ok {
+				c.checkList = append(c.checkList, checker.NewLightningFreeSpaceChecker(
+					info.totalDataSize.Load(), targetInfoGetter))
 			}
-			c.checkList = append(c.checkList, checker.NewLightningEmptyRegionChecker(lChecker))
-		}
-		if _, ok := c.checkingItems[config.LightningRegionDistributionChecking]; ok {
-			lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterRegionDist)
-			if err != nil {
-				return err
+			if _, ok := c.checkingItems[config.LightningEmptyRegionChecking]; ok {
+				lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterEmptyRegion)
+				if err != nil {
+					return err
+				}
+				c.checkList = append(c.checkList, checker.NewLightningEmptyRegionChecker(lChecker))
 			}
-			c.checkList = append(c.checkList, checker.NewLightningRegionDistributionChecker(lChecker))
-		}
-		if _, ok := c.checkingItems[config.LightningDownstreamVersionChecking]; ok {
-			lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterVersion)
-			if err != nil {
-				return err
+			if _, ok := c.checkingItems[config.LightningRegionDistributionChecking]; ok {
+				lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterRegionDist)
+				if err != nil {
+					return err
+				}
+				c.checkList = append(c.checkList, checker.NewLightningRegionDistributionChecker(lChecker))
 			}
-			c.checkList = append(c.checkList, checker.NewLightningClusterVersionChecker(lChecker))
-		}
-		if _, ok := c.checkingItems[config.LightningMutexFeatureChecking]; ok {
-			lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetUsingCDCPITR)
-			if err != nil {
-				return err
+			if _, ok := c.checkingItems[config.LightningDownstreamVersionChecking]; ok {
+				lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetClusterVersion)
+				if err != nil {
+					return err
+				}
+				c.checkList = append(c.checkList, checker.NewLightningClusterVersionChecker(lChecker))
 			}
-			c.checkList = append(c.checkList, checker.NewLightningCDCPiTRChecker(lChecker))
+			if _, ok := c.checkingItems[config.LightningMutexFeatureChecking]; ok {
+				lChecker, err := builder.BuildPrecheckItem(restore.CheckTargetUsingCDCPITR)
+				if err != nil {
+					return err
+				}
+				c.checkList = append(c.checkList, checker.NewLightningCDCPiTRChecker(lChecker))
+			}
 		}
 	}
 

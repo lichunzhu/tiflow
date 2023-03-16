@@ -297,6 +297,15 @@ type LoaderConfig struct {
 	OnDuplicatePhysical PhysicalDuplicateResolveType `yaml:"on-duplicate-physical" toml:"on-duplicate-physical" json:"on-duplicate-physical"`
 	DiskQuotaPhysical   config.ByteSize              `yaml:"disk-quota-physical" toml:"disk-quota-physical" json:"disk-quota-physical"`
 	ChecksumPhysical    PhysicalChecksumType         `yaml:"checksum-physical" toml:"checksum-physical" json:"checksum-physical"`
+
+	RangeConcurrency           int    `yaml:"range-concurrency" toml:"range-concurrency" json:"range-concurrency"`
+	CompressKVPairs            string `yaml:"compress-kv-pairs" toml:"compress-kv-pairs" json:"compress-kv-pairs"`
+	CheckRequirements          bool   `yaml:"check-requirements" toml:"check-requirements" json:"check-requirements"`
+	Analyze                    bool   `yaml:"analyze" toml:"analyze" json:"analyze"`
+	DistScanConcurrency        int    `yaml:"dist-scan-concurrency" toml:"dist-scan-concurrency" json:"dist-scan-concurrency"`
+	BuildStatsConcurrency      int    `yaml:"build-stats-concurrency" toml:"build-stats-concurrency" json:"build-stats-concurrency"`
+	IndexSerialScanConcurrency int    `yaml:"index-serial-scan-concurrency" toml:"index-serial-scan-concurrency" json:"index-serial-scan-concurrency"`
+	PDAddr                     string `yaml:"pd-addr" toml:"pd-addr" json:"pd-addr"`
 }
 
 // DefaultLoaderConfig return default loader config for task.

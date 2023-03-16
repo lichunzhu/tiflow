@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -110,6 +111,7 @@ func MakeGlobalConfig(cfg *config.SubTaskConfig) *lcfg.GlobalConfig {
 	}
 	lightningCfg.TiDB.Host = cfg.To.Host
 	lightningCfg.TiDB.Psw = cfg.To.Password
+	lightningCfg.TiDB.PdAddr = cfg.PDAddr
 	lightningCfg.TiDB.User = cfg.To.User
 	lightningCfg.TiDB.Port = cfg.To.Port
 	lightningCfg.TikvImporter.Backend = lcfg.BackendTiDB
@@ -360,12 +362,33 @@ func GetLightningConfig(globalCfg *lcfg.GlobalConfig, subtaskCfg *config.SubTask
 			cfg.TiDB.Vars[k] = v
 		}
 	}
+	cfg.TikvImporter.RangeConcurrency = subtaskCfg.RangeConcurrency
+	err = cfg.TikvImporter.CompressKVPairs.FromStringValue(subtaskCfg.CompressKVPairs)
+	if err != nil {
+		return nil, err
+	}
+	if subtaskCfg.Analyze {
+		cfg.PostRestore.Analyze = lcfg.OpLevelRequired
+	} else {
+		cfg.PostRestore.Analyze = lcfg.OpLevelOff
+	}
+
 	cfg.TiDB.Vars = map[string]string{
 		// always set transaction mode to optimistic
 		"tidb_txn_mode": "optimistic",
 		// always disable foreign key check when do full sync.
 		"foreign_key_checks": "0",
 	}
+	if subtaskCfg.BuildStatsConcurrency > 0 {
+		cfg.TiDB.Vars["tidb_build_stats_concurrency"] = strconv.Itoa(subtaskCfg.BuildStatsConcurrency)
+	}
+	if subtaskCfg.DistScanConcurrency > 0 {
+		cfg.TiDB.Vars["tidb_distsql_scan_concurrency"] = strconv.Itoa(subtaskCfg.DistScanConcurrency)
+	}
+	if subtaskCfg.IndexSerialScanConcurrency > 0 {
+		cfg.TiDB.Vars["tidb_index_serial_scan_concurrency"] = strconv.Itoa(subtaskCfg.IndexSerialScanConcurrency)
+	}
+
 	cfg.Mydumper.SourceID = subtaskCfg.SourceID
 	return cfg, nil
 }
