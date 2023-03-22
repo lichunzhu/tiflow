@@ -58,7 +58,7 @@ func createRealUnits(cfg *config.SubTaskConfig, etcdClient *clientv3.Client, wor
 	us := make([]unit.Unit, 0, 3)
 	switch cfg.Mode {
 	case config.ModeAll:
-		us = append(us, dumpling.NewDumpling(cfg))
+		// us = append(us, dumpling.NewDumpling(cfg))
 		us = append(us, loader.NewLightning(cfg, etcdClient, workerName))
 		us = append(us, syncer.NewSyncer(cfg, etcdClient, relay))
 	case config.ModeFull:
